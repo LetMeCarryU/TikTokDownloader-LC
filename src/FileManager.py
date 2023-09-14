@@ -120,17 +120,17 @@ class DownloadRecorder:
         else:
             with self.path.open("r") as f:
                 blacklist = {line.strip() for line in f}
-        self.file = self.path.open("w")
         self.save_file(blacklist)
         return blacklist
 
     def save_file(self, data):
         result = [f"{i}\n" for i in data]
-        self.file.write("".join(result))
+        with open(self.path, "a") as file:
+            file.write("".join(result))
 
     def update_id(self, id_):
-        if self.switch:
-            self.file.write(f"{id_}\n")
+        with open(self.path, "a") as file:
+            file.write(f"{id_}\n")
 
     def close(self):
         if self.file:
