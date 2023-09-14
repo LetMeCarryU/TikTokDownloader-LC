@@ -7,7 +7,6 @@ from shutil import move
 from threading import Thread
 
 import requests
-from emoji import replace_emoji
 
 from src.Customizer import MAX_WORKERS
 from src.Customizer import wait
@@ -555,6 +554,7 @@ class Downloader:
                 elif all((self.max_size, content, content > self.max_size)):
                     self.log.info(f"{file} 文件大小超出限制，跳过下载")
                     return True
+                print(f"full_path:4253|14151:{full_path}:4253|14151:")
                 return bool(
                     self.save_file(
                         response,
@@ -574,7 +574,7 @@ class Downloader:
             if not self.check_blacklist(item[0]):
                 continue
             for index, image in enumerate(item[6]):
-                name = replace_emoji(self.get_name(item))
+                name = (self.get_name(item))
                 self.__thread.submit(
                     self.request_file,
                     image,
@@ -592,7 +592,7 @@ class Downloader:
         for item in self.video_data:
             if not self.check_blacklist(item[0]):
                 continue
-            name = replace_emoji(self.get_name(item))
+            name = (self.get_name(item))
             self.__thread.submit(
                 self.request_file,
                 item[6],
@@ -731,7 +731,7 @@ class Downloader:
             self.create_folder(self.folder)
         data = self.get_data(id_)
         if not data:
-            self.log.warning("获取作品详细信息失败")
+            self.log.warning("作品不见了！")
             return False
         self.nickname = self.clean.filter(data["author"]["nickname"])
         self.mark = self.nickname
