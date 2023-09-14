@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from urllib.parse import urlparse
 
 import requests
+import winsound
 from requests import exceptions
 from requests import get
 from requests import post
@@ -71,6 +72,9 @@ def retry(finish=False):
                     return result
                 else:
                     print(self.colour.colorize(f"正在尝试第 {i + 1} 次重试", 93))
+                    if i == 4:
+                        for x in range(5):
+                            winsound.Beep(frequency=4500, duration=600)
             if not (result := function(self, *args, **kwargs)) and finish:
                 self.finish = True
             return result
@@ -428,7 +432,7 @@ class Acquirer:
             "channel": "channel_pc_web",
             "sec_user_id": self.id_,
             "max_cursor": self.cursor,
-            "count": "18",
+            "count": "88",
             "cookie_enabled": "true",
             "platform": "PC",
             "downlink": "10",
@@ -450,6 +454,7 @@ class Acquirer:
                 self.cursor = data['max_cursor']
                 self.list = list_
                 self.finish = not data["has_more"]
+                print(f"取到 {len(list_)} 个")
             return True
         except KeyError:
             self.log.error(f"账号作品数据响应内容异常: {data}", False)
@@ -572,6 +577,7 @@ class Acquirer:
             self.get_public_num()
         if not all((self.name, self.uid)):
             self.log.error(f"获取{tip}账号数据失败，请稍后重试")
+            self.log.error(f"mark={self.mark} url=https://www.douyin.com/user/{self.id_}")
             return False
         self.date_filters()
         self.summary()
