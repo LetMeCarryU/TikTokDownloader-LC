@@ -1,3 +1,4 @@
+import sys
 from time import time
 
 from src.Customizer import TEXT_REPLACEMENT
@@ -107,7 +108,7 @@ class TikTok:
         self.set_parameters()
 
     def check_config(self):
-        print("正在读取配置文件！")
+        # print("正在读取配置文件！")
         settings = self.settings.read()
         if not isinstance(settings, dict):
             return False
@@ -153,7 +154,7 @@ class TikTok:
              "pages",
              ))
         self.save = bool(self._data["save"])
-        print("读取配置文件成功！")
+        # print("读取配置文件成功！")
         return True
 
     def batch_acquisition(self):
@@ -165,29 +166,18 @@ class TikTok:
             name=self.nickname)
         save, root, params = self.record.run(
             self._data["root"], format_=self._data["save"])
-        select = prompt("请选择账号链接来源", ("使用 accounts 参数内的账号链接(推荐)",
-                                               "手动输入待采集的账号链接"), self.colour.colorize)
-        if select == "1":
-            self.user_works_batch(save, root, params)
-        elif select == "2":
-            self.user_works_solo(save, root, params)
-        elif select.upper() == "Q":
-            self.quit = True
+        self.user_works_batch(save, root, params)
         self.logger.info("已退出批量下载账号作品模式")
 
     def user_works_batch(self, save, root, params):
         self.logger.info(f"共有 {self._number} 个账号的作品等待下载")
         for index in range(self._number):
-            if not self.get_account_works(
-                    index + 1,
-                    *self.accounts[index],
-                    save,
-                    root,
-                    params):
-                if failed():
-                    continue
-                break
-            # break  # 调试使用
+            self.get_account_works(
+                index + 1,
+                *self.accounts[index],
+                save,
+                root,
+                params)
 
     def user_works_solo(self, save, root, params):
         while True:
@@ -255,63 +245,20 @@ class TikTok:
                               self.request.video_data,
                               self.request.image_data, api)
 
-    def single_acquisition(self):
+    def single_acquisition(self, url):
         save, root, params = self.record.run(
             self._data["root"], format_=self._data["save"])
         with save(root, **params) as data:
             self.download.data = data
-            while True:
-                url = input("请输入分享链接: ")
-                if not url:
-                    break
-                elif url.upper() == "Q":
-                    self.quit = True
-                    break
-                ids = self.request.run_alone(url)
-                if not ids:
-                    self.logger.error(f"{url} 获取作品ID失败")
-                    continue
-                self.download.tiktok = self.request.tiktok
-                for i in ids:
-                    self.download.run_alone(i)
-        self.logger.info("已退出单独下载链接作品模式")
 
-    def live_acquisition(self):
-        def choice_quality(items: dict) -> str:
-            try:
-                choice = input("请选择下载清晰度(输入清晰度或者对应索引，直接回车代表不下载): ")
-                if u := items.get(choice):
-                    return u
-                if not 0 <= (i := int(choice)) < len(items):
-                    raise ValueError
-            except ValueError:
-                return ""
-            keys = list(items.keys())
-            return items[keys[i]]
-
-        print(
-            self.colour.colorize(
-                "如果设置了已登录的 Cookie，获取直播数据时将会导致正在观看的直播中断，刷新即可恢复！",
-                93))
-        while True:
-            link = input("请输入直播链接: ")
-            if not link:
-                break
-            elif link.upper() == "Q":
-                self.quit = True
-                break
-            if not (data := self.request.run_live(link)):
-                continue
-            for item in data:
-                self.logger.info(f"主播昵称: {item[0]}")
-                self.logger.info(f"直播标题: {item[1]}")
-                self.logger.info(f"在线观众: {item[5]}")
-                self.logger.info(f"观看次数: {item[4]}")
-                self.logger.info(
-                    "推流地址: \n" + "\n".join([f"清晰度{i}: {j}" for i, j in item[2].items()]))
-                if len(data) == 1 and (l := choice_quality(item[2])):
-                    self.download.download_live(l, f"{item[0]}-{item[1]}")
-        self.logger.info("已退出获取直播推流地址模式")
+            ids = self.request.run_alone(url)
+            if not ids:
+                self.logger.error(f"{url} 获取作品ID失败")
+                sys.exit()
+            self.download.tiktok = self.request.tiktok
+            for i in ids:
+                self.download.run_alone(i)
+        # self.logger.info("已退出单独下载链接作品模式")
 
     def initialize(
             self,
@@ -522,152 +469,10 @@ class TikTok:
             self.quit = True
         self.logger.info("已退出批量采集账号数据模式")
 
-    def get_condition(self, condition=None) -> None | tuple[list, str]:
-        def extract_integer_and_compare(input_string: str) -> int:
-            try:
-                # 尝试将字符串转换为整数，如果转换成功，则返回比较大的数
-                return max(int(input_string), 1)
-            except ValueError:
-                # 如果转换失败，则返回1
-                return 1
-
-        while not condition:
-            condition = input("请输入搜索条件:\n(关键词 类型 页数 排序规则 时间筛选)\n")
-            if not condition:
-                return None
-            elif condition.upper() == "Q":
-                self.quit = True
-                return None
-
-        # 分割字符串
-        words = condition.split()
-
-        # 如果列表长度小于指定长度，使用空字符串补齐
-        while len(words) < 5:
-            words.append("")
-
-        words[1] = self.SEARCH["type"].get(words[1], 0)
-        words[2] = extract_integer_and_compare(words[2])
-        words[3] = self.SEARCH["sort"].get(words[3], 0)
-        words[4] = words[4] if words[4] in ("0", "1", "7", "182") else "0"
-
-        if words[1] == 2:
-            text = "_".join([self.SEARCH["type_text"][words[1]],
-                             words[0]])
-        else:
-            text = "_".join([self.SEARCH["type_text"][words[1]],
-                             self.SEARCH["sort_text"][words[3]],
-                             self.SEARCH["publish_text"][words[4]],
-                             words[0]])
-
-        return words, text
-
-    @check_save
-    def search_acquisition(self):
-        self.download.favorite = True
-        self.download.download = False
-        while c := self.get_condition():
-            self.get_search_results(*c)
-        self.download.favorite = False
-        self.download.download = self._data['download']
-        self.logger.info("已退出采集搜索结果数据模式")
-
-    def get_search_results(self, works, text, api=False):
-        tag = works[1]
-        self.request.run_search(*works[:5])
-        if not self.request.search_data:
-            self.logger.info("采集搜索结果失败")
-            return
-        save, root, params = self.record.run(
-            self._data["root"], type_=self.DATA_TYPE.get(
-                tag), format_=self._data["save"])
-        params["file"] = "SearchResult.db"
-        name = f"{text}_{str(time())[:10]}"
-        with save(root, name=name, **params) as data:
-            if tag in (0, 1):
-                self.deal_search_items(data, api)
-            elif tag == 2:
-                self.deal_search_user(data, api)
-            else:
-                raise ValueError
-        self.logger.info(f"搜索结果数据已储存至 {name}")
-
-    def deal_search_items(self, file, api=False):
-        self.logger.info("开始提取搜索结果")
-        self.download.data = file
-        self.download.api_data = []
-        self.download.get_info(self.request.search_data, api)
-        self.logger.info("搜索结果提取结束")
-
-    def deal_search_user(self, file, api=False):
-        self.logger.info("开始提取搜索结果")
-        item = self.request.deal_search_user()
-        if api:
-            self.download.api_data = item
-        self.request.save_user(file, item, True)
-
-    @check_save
-    def hot_acquisition(self, api=None):
-        collection_time = str(time())[:10]
-        save, root, params = self.record.run(
-            self._data["root"], type_="hot", format_=self._data["save"])
-        for i, j in enumerate(("热榜", "娱乐榜", "社会榜", "挑战榜")):
-            with save(root, name=f"HOT_{collection_time}_{j}", **params) as data:
-                self.request.run_hot(i, j, data, api)
-        self.logger.info(f"抖音热榜数据已储存至 HOT + {collection_time} + 榜单类型")
-        self.logger.info("已退出采集抖音热榜数据模式")
-
-    def collection_acquisition(self):
-        save, root, params = self.record.run(
-            self._data["root"], format_=self._data["save"])
-        self.request.earliest = ""
-        self.request.latest = ""
-        if self.request.run_collection():
-            self.download_account_works(0, save, root, params, None)
-        self.logger.info("已退出批量下载收藏作品模式")
-
-    def run(self):
+    def run(self, url=""):
         self.configuration()
-        while not self.quit:
-            select = prompt(
-                "请选择下载模式",
-                ("批量下载账号作品",
-                 "单独下载链接作品",
-                 "获取直播推流地址",
-                 "采集作品评论数据",
-                 "批量下载合集作品",
-                 "批量采集账号数据",
-                 "采集搜索结果数据",
-                 "采集抖音热榜数据",
-                 "批量下载收藏作品"),
-                self.colour.colorize)
-            if select in ("Q", "q", "",):
-                self.quit = True
-            elif select == "1":
-                self.logger.info("已选择批量下载账号作品模式")
-                self.batch_acquisition()
-            elif select == "2":
-                self.logger.info("已选择单独下载链接作品模式")
-                self.single_acquisition()
-            elif select == "3":
-                self.logger.info("已选择获取直播推流地址模式")
-                self.live_acquisition()
-            elif select == "4":
-                self.logger.info("已选择采集作品评论数据模式")
-                self.comment_acquisition()
-            elif select == "5":
-                self.logger.info("已选择批量下载合集作品模式")
-                self.mix_acquisition()
-            elif select == "6":
-                self.logger.info("已选择批量采集账号数据模式")
-                self.user_acquisition()
-            elif select == "7":
-                self.logger.info("已选择采集搜索结果数据模式")
-                self.search_acquisition()
-            elif select == "8":
-                self.logger.info("已选择采集抖音热榜数据模式")
-                self.hot_acquisition()
-            elif select == "9":
-                self.logger.info("已选择批量下载收藏作品模式")
-                self.collection_acquisition()
-        self.logger.info("程序运行结束")
+        if url:
+            self.single_acquisition(url)
+        else:
+            self.batch_acquisition()
+        # self.logger.info("程序运行结束")
