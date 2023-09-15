@@ -64,7 +64,7 @@ def main():
     dir_path = file_path.parent
     aPath = Path.joinpath(dir_path, "idA.json")
 
-    fileList = getFileIdList(checkFilePath, "2018-09-13")
+    fileList = getFileIdList(checkFilePath, "2023-09-01")
     print("----------------------------------------------")
     print(f"fileList: {len(fileList)}")
 
