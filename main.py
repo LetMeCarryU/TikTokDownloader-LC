@@ -10,10 +10,7 @@ from src.FileManager import deal_config
 from src.Parameter import NewXBogus
 from src.Parameter import generate_user_agent
 from src.StringCleaner import Colour
-from src.main_api_server import APIServer
 from src.main_complete import TikTok
-from src.main_server import Server
-from src.main_web_UI import WebUI
 
 
 class TikTokDownloader:
